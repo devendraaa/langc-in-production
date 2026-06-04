@@ -4,3 +4,6 @@ langchain-anthropic
 langchain-core
 langgraph
 python-dotenv
+langchain_community
+pypdf
+chromdb
