@@ -79,11 +79,14 @@ def demo_basic_rag():
     question = ['What is the capital of France?',
                 'What is the largest mammal?',
                 'What is the capital of Japan?']
+    
+    question2 = ['what is the name of openai founder']
     # for q in question:
     #     answer = rag_chain.invoke({"question": q})
     #     print(f"Question: {q}\nAnswer: {answer}\n")
 
-    for q in question:
+
+    for q in question2:
         answer = rag_chain.invoke(q)
         print(f"Question: {q}")
         print(f"Answer: {answer}")
