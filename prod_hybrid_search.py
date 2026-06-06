@@ -111,7 +111,7 @@ text_query = [
 
 for query in text_query:
     print('=' * 80)
-    vector_sear = test_query(query, "Vector", vector_retriever)
-    bm25_sear = test_query(query, "BM25", bm25_retriever)
-    hybrid_sear = test_query(query, "Hybrid", ensemble_retriever)
+    # vector_sear = test_query(query, "Vector", vector_retriever)
+    # bm25_sear = test_query(query, "BM25", bm25_retriever)
+    # hybrid_sear = test_query(query, "Hybrid", ensemble_retriever)
    

@@ -17,8 +17,6 @@ from pydantic import BaseModel, field_validator
 from dotenv import load_dotenv
 from torch import chunk
 
-from prod_hybrid_search import test_query
-
 load_dotenv()
 
 os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
@@ -67,56 +65,44 @@ During authentication, the client obtains an access token from the authorization
 Security best practices include using PKCE, validating redirect URIs, securely storing tokens, and rotating client secrets. Proper OAuth implementation significantly reduces the risk of unauthorized access to protected resources.
 """
 
-recursive_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=400,
-    chunk_overlap=50,
-    separators=["\n\n", "\n", " ", ""]
-)
+def smart_chunkers(
+        text:str, use_semantic: bool = True, fallback_chunk_size: int = 500
+        ) ->list[str]:
+    """Production chunking semantic as primary, fallback to recursive."""
 
-recursive_chunks = recursive_splitter.split_text(document)
-# print(f"Recursive chunk total length:{len(recursive_chunks)}")
-# for i, chunk in enumerate(recursive_chunks):
-#     print(f"\n -- chunk {i+1} ({len(chunk)}) chars-- \n)")
-#     print(chunk[:100] + "..." if len(chunk) > 100 else chunk)
-
-
-semantic_chunker = SemanticChunker(embedding_model,
+    if use_semantic:
+        try:
+            semantic_chunker = SemanticChunker(embedding_model,
                                    breakpoint_threshold_type='percentile',
 
                                    breakpoint_threshold_amount=90)
+            
+            chunks = semantic_chunker.split_text(text)
+            
+            max_chunk_size = 2000
+            if any(len(c)> max_chunk_size for c in chunks):
+                return _recursive_fallback(text, fallback_chunk_size)
+            
+            return chunks
+        
+        except Exception as e:
+            print(f'semantic chunk failed: {e}, using fallback')
+            return _recursive_fallback(text, fallback_chunk_size)
+        
+        return _recursive_fallback(text, fallback_chunk_size)
+    
+def _recursive_fallback(text:str, fallback_chunk_size: int) -> list[str]:
+    splitter = RecursiveCharacterTextSplitter(chunk_size=fallback_chunk_size,
+                                              chunk_overlap=50,
+                                              separators=["\n\n", "\n", " ", ""])
+    
+    return splitter.split_text(text)
 
-semantic_chunks = semantic_chunker.split_text(document)
+chunks = smart_chunkers(document, use_semantic=True)
 
-# print("*" * 40, "semantic chunk output", "*" * 40)
+print("*" * 40, "smart chunker output", "*" * 40)
 
-# print(f"Semantic chunk total length:{len(semantic_chunks)}")
-
-# for i, chunk in enumerate(semantic_chunks):
-#     print(f"\n--- chunk {i+1} ({len(chunk)}) chars) ---")
-#     print(chunk[:100] + "..." if len(chunk) > 100 else chunk)
-
-#creating two vector store for each chunking
-
-recurive_vs = Chroma.from_texts(recursive_chunks, embedding_model,
-                                collection_name="recursive_vs")
-
-semantic_vs = Chroma.from_texts(semantic_chunks, embedding_model,
-                                collection_name="semantic_vs")
-
-test_query = [
-    'how do i authenticate with 0Auth2?',
-    'what happens when i hit the rate limit',
-    'how are webhook are secured?',
-    'what format are errors returned in?'
-]
-
-def test_retrival(query, vector_st, name):
-    result = vector_st.similarity_search(query, k=1)
-    print(f'\n{name}-query: \"{query}\"')
-    print(f'Retrival:{result[0].page_content[:150]}...')
-    return result[0].page_content
-
-for q in test_query:
-    print('=' * 80)
-    recurisive_ret = test_retrival(q, recurive_vs, "recursive")
-    semantic_ret = test_retrival(q, semantic_vs, "semantic")
+print(f"Smart chunk total length:{len(chunks)}")
+for i, chunk in enumerate(chunks):
+    print(f"\n--- chunk {i+1} ({len(chunk)}) chars) ---")
+    print(chunk[:100] + "..." if len(chunk) > 100 else chunk)
