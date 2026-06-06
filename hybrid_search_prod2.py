@@ -4,6 +4,7 @@ from langchain_community.retrievers import BM25Retriever
 from langchain_classic.retrievers import EnsembleRetriever
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from typing import List
 
 from dotenv import load_dotenv
 
@@ -125,6 +126,17 @@ class Hybrid_search:
         self.ensemble_retriever = EnsembleRetriever(retrievers=[self.vector_retriever, 
                                                                self.bm25_retriever], 
                                                       weights=[self.vector_weight, self.bm25_weight])
+        
+        def add_document(self, document: List[Document]):
+            """Add document to bm25 retrivel because it's doesn't support auto increment data"""
+            self.vector_store.add_documents(documents=document)
+
+            all_docs = self.vector_store.get()
+            self.bm25_retriever = BM25Retriever.from_documents(
+                [Document(page_content=doc) for doc in all_docs['documents']], k=self.k
+            )
+
+            
         def vector_search(query):
             results = self.vector_retriever.invoke(query)
             return results
@@ -140,27 +152,40 @@ class Hybrid_search:
         self.vector_search = vector_search
         self.bm25_search = bm25_search
         self.hybrid_search = hybrid_search
+        self.add_document = add_document
+
 
 
 query = ["RED-CARD-001"]
-        
-vector_sear = Hybrid_search(documents).vector_search(query[0]) # This is a test
-bm25_sear = Hybrid_search(documents).bm25_search(query[0])
-hybrid_sear = Hybrid_search(documents).hybrid_search(query[0])
+
+hybrid_ser = Hybrid_search(documents)
+
+vector_sear = hybrid_ser.vector_search(query[0])
+
+bm25_sear = hybrid_ser.bm25_search(query[0])
+
+hybrid_sear = hybrid_ser.hybrid_search(query[0])
 
 print("*" *40, "vector search output", "*"*40)
-for data in vector_sear:
-    print(f"\n this is Vector search output: {data}")
+
+for i, data in enumerate(vector_sear):
+    print(f"\n output {i+1}: {data.page_content}")
+    if data.metadata:
+        print(f"  Metadata: {data.metadata}")
 
 print("*" *40, "bm25 search output", "*"*40)
 
 for data in bm25_sear:
-    print(f"\n this is BM25 search output: {data}")
+    print(f"\n output: {data.page_content}")
+    if data.metadata:
+        print(f"  Metadata: {data.metadata}")
 
 print("*" *40, "hybrid search output", "*"*40)
 
 for data in hybrid_sear:
-    print(f"\n this is hybrid search output: {data}")
+    print(f"\n output: {data.page_content}")
+    if data.metadata:
+        print(f"  Metadata: {data.metadata}")
 
 # print(f"\n this is output: {vector_sear}")
 
