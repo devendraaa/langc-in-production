@@ -1,26 +1,18 @@
-from bz2 import compress
 import os
 from langchain_chroma import Chroma
-from langchain_experimental.text_splitter import SemanticChunker
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.retrievers import BM25Retriever
-from langchain_classic.retrievers import EnsembleRetriever
 from langchain_core.stores import InMemoryStore
 from langchain_classic.retrievers import ParentDocumentRetriever
 from langchain_classic.retrievers import ContextualCompressionRetriever
-from langchain_classic.retrievers import LLMChainExtractor
+from langchain_classic.retrievers.document_compressors import LLMChainExtractor
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from typing import List
 from langsmith import traceable
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import RunnablePassthrough, RunnableParallel
 from langchain.chat_models import init_chat_model
 from langchain_huggingface import HuggingFaceEmbeddings
 from pydantic import BaseModel, field_validator
 from dotenv import load_dotenv
-from torch import chunk
+from torch import embedding
 from data import documents
 load_dotenv()
 
@@ -32,7 +24,7 @@ def demo_parent_ret():
 
     print("*" * 80)
     print("Parent document retreiver")
-    print("small chunk for precise search, long chunk foe context")
+    print("small chunk for precise search, long chunk for context")
     print("*" * 80)
 
     long_doc = Document(page_content=documents,
@@ -80,9 +72,25 @@ def demo_contextual_compression():
     print("Contextual Compression")
     print("*" * 80)
 
+    # embedding_mo = HuggingFaceEmbeddings(model="sentence-transformers/all-MiniLM-L6-v2")
+
+    # vector_store = Chroma.from_documents(
+    # documents=documents,
+    # embedding=embedding_mo,
+    # persist_directory='mydb'
+    # )
+
     vector_store = Chroma(collection_name="parent_child_demo",
                           embedding_function=HuggingFaceEmbeddings(model="sentence-transformers/all-MiniLM-L6-v2")
                         )
+    
+    doc = Document(
+    page_content=documents,
+    metadata={"source": "ai_agentic_guide.md"}
+)
+    
+    vector_store.add_documents([doc])
+
     llm = init_chat_model("google_genai:gemini-2.5-flash")
 
     compressor = LLMChainExtractor.from_llm(llm)
@@ -105,8 +113,6 @@ def demo_contextual_compression():
     for doc in compressed_doc:
         print(f"Length: {len(doc.page_content)} chars")
         print(f"Content: {doc.page_content}\n")
-
-
 
 
 if __name__ == "__main__":
