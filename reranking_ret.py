@@ -56,14 +56,36 @@ query = 'what is tool calling'
 
 
 from data import documents
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+doc = Document(page_content=documents)
+
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=300,
+    chunk_overlap=50
+)
+chunks = splitter.split_documents([doc])
+print(type(chunks))
+
 
 reranker = CrossEncoder(
     "BAAI/bge-reranker-base"
 )
 
-pairs = [(query, doc) for doc in documents]
+pairs = [
+    [query, chunk.page_content]
+    for chunk in chunks
+]
 
 scores = reranker.predict(pairs)
 
-for doc, score in zip(documents,scores):
-    print(score, doc)
+ranked = sorted(
+    zip(chunks, scores),
+    key=lambda x: x[1],
+    reverse=True
+)
+
+for chunk, score in ranked[:3]:
+    print(f"\nScore: {score:.4f}")
+    print(chunk.page_content[:200])
